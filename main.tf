@@ -28,14 +28,14 @@ resource "aws_instance" "jenkins" {
 # Create a security group for Jenkins
 resource "aws_security_group" "jenkins" {
   name_prefix = "jenkins-sg-"
-  
+
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["your-ip-address/32"]
   }
-  
+
   ingress {
     from_port   = 8080
     to_port     = 8080
@@ -48,7 +48,7 @@ resource "aws_security_group" "jenkins" {
   }
 }
 
-# Create an S3 bucket for Jenkins artifacts
+# Create the S3 bucket for Jenkins artifacts
 resource "aws_s3_bucket" "jenkins_artifacts" {
   bucket = "mhd-s3-terr-jenk-yembro-8551"
   
