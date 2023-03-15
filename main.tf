@@ -33,7 +33,7 @@ resource "aws_security_group" "jenkins" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["your-ip-address/32"]
+    cidr_blocks = ["45.26.131.57/32"]
   }
 
   ingress {
@@ -49,14 +49,11 @@ resource "aws_security_group" "jenkins" {
 }
 
 # Create the S3 bucket for Jenkins artifacts
-resource "aws_s3_bucket" "jenkins_artifacts" {
+resource "aws_s3_bucket" "jenkins_artifacts-mhd" {
   bucket = "mhd-s3-terr-jenk-yembro-8551"
-  
-  versioning {
-    enabled = true
-  }
+}
 
-  tags = {
-    Name = "jenkins-artifacts"
-  }
+resource "aws_s3_bucket_acl" "jenkins_artifacts-mhd123" {
+  bucket = "aws_s3_bucket.mhd-s3-terr-jenk-yembro-8551.id"
+  acl    = "private"
 }
