@@ -1,59 +1,109 @@
-provider "aws" {
-  region = "us-east-1"
-}
+# TERRAFORM main.tf file 
 
-# Create a new EC2 instance
-resource "aws_instance" "jenkins" {
-  ami           = "ami-005f9685cb30f234b"
-  instance_type = "t2.micro"
-  key_name      = "mhd-w7"
-  vpc_security_group_ids = [aws_security_group.jenkins.id]
+# Create EC2 Instance
 
-  user_data = <<-EOF
-              #!/bin/bash
-              sudo yum -y update
-              sudo yum -y install java-1.8.0-openjdk
-              sudo wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
-              sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
-              sudo yum -y install jenkins
-              sudo systemctl start jenkins
-              sudo systemctl enable jenkins
-              EOF
+resource "aws_instance" "jenkins_server" {
+  ami             = var.ami
+  instance_type   = var.instance_type
+  key_name        = var.mhd_ssh_key_name
+  subnet_id       = aws_subnet.subnet.id
+  security_groups = [aws_security_group.jenkins_security_group.id]
+  user_data       = var.ec2_user_data
 
   tags = {
-    Name = "jenkins-instance"
+    Name = var.ec2_tag
   }
 }
 
-# Create a security group for Jenkins
-resource "aws_security_group" "jenkins" {
-  name_prefix = "jenkins-sg-"
+
+#  Create VPC Resources
+
+resource "aws_vpc" "vpc" {
+  cidr_block = var.vpc_md_cidr
+
+  tags = {
+    Name = var.vpc_tag
+  }
+}
+
+resource "aws_subnet" "subnet" {
+  vpc_id                  = aws_vpc.vpc.id
+  cidr_block              = var.subnet_cidr
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = var.subnet_tag
+  }
+}
+
+resource "aws_internet_gateway" "internet_gateway" {
+  vpc_id = aws_vpc.vpc.id
+
+  tags = {
+    Name = var.internet_gateway_tag
+  }
+}
+
+resource "aws_default_route_table" "default_route" {
+  default_route_table_id = aws_vpc.vpc.default_route_table_id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.internet_gateway.id
+  }
+  tags = {
+    Name = var.internet_gateway_tag
+  }
+}
+
+resource "aws_s3_bucket" "s3" {
+  bucket        = var.bucket_name
+  force_destroy = true
+
+  tags = {
+    Name = var.bucket_name
+  }
+}
+
+# Public IP and add to Security Group
+
+data "external" "myipaddr" {
+  program = ["bash", "-c", "curl -s 'https://ipinfo.io/json'"]
+}
+
+# Create EC2 Security Group and Security Rules
+
+resource "aws_security_group" "jenkins_security_group" {
+  name        = var.security_group_name
+  description = "Apply to Jenkins EC2 instance"
+  vpc_id      = aws_vpc.vpc.id
 
   ingress {
+    description = "Allow SSH from MY Public IP"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["45.26.131.57/32"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
+    description = "Allow access to Jenkis from My IP"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  egress {
+    description = "Allow All Outbound"
+    protocol    = -1
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags = {
-    Name = "jenkins-sg"
+    Name = "Jenkins_Security_Group"
   }
 }
 
-# Create the S3 bucket for Jenkins artifacts
-resource "aws_s3_bucket" "jenkins_artifacts-mhd" {
-  bucket = "mhd-s3-terr-jenk-yembro-8551"
-}
-
-resource "aws_s3_bucket_acl" "jenkins_artifacts-mhd123" {
-  bucket = "aws_s3_bucket.mhd-s3-terr-jenk-yembro-8551.id"
-  acl    = "private"
-}
